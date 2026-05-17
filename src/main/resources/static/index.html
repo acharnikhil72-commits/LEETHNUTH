@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HamsHub — Delivery Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f5f0e8;--ink:#1a1209;--card:#ffffff;
+    --accent:#e85d00;--accent2:#1a6b3c;--warn:#c8a000;
+    --border:#d6cfc2;--muted:#8a7f70;
+    --shadow:0 2px 16px rgba(26,18,9,0.10);
+  }
+  body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;min-height:100vh;padding:0 0 80px}
+  .wrap{max-width:740px;margin:0 auto;padding:0 20px}
+
+  /* HEADER */
+  header{background:var(--ink);color:#f5f0e8;padding:0 20px;margin-bottom:40px}
+  .header-inner{max-width:740px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:20px 0}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:var(--accent);line-height:1}
+  .logo span{color:#f5f0e8}
+  .tagline{font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#8a7f70;margin-top:2px;font-family:'JetBrains Mono',monospace}
+  .api-status{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 12px;border-radius:4px;background:rgba(245,240,232,0.08);color:#8a7f70;display:flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#666;animation:blink 2s infinite}
+  .dot.ok{background:#4ade80}.dot.err{background:#f87171}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  .sec-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;margin-bottom:4px}
+  .sec-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:28px;box-shadow:var(--shadow)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .full{grid-column:1/-1}
+  .field{display:flex;flex-direction:column;gap:6px}
+  label{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  input,select{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;color:var(--ink);outline:none;transition:border-color 0.15s,box-shadow 0.15s;width:100%;-webkit-appearance:none}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(232,93,0,0.12)}
+  input::placeholder{color:#bbb}
+
+  .cod-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer}
+  .cod-row span{font-size:15px;font-weight:500}
+  .toggle{position:relative;width:42px;height:23px;flex-shrink:0}
+  .toggle input{opacity:0;width:0;height:0}
+  .tog-slider{position:absolute;inset:0;background:#d6cfc2;border-radius:23px;transition:background 0.25s;cursor:pointer}
+  .tog-slider::before{content:'';position:absolute;width:17px;height:17px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform 0.25s;box-shadow:0 1px 4px rgba(0,0,0,0.2)}
+  .toggle input:checked+.tog-slider{background:var(--accent)}
+  .toggle input:checked+.tog-slider::before{transform:translateX(19px)}
+
+  .btn-predict{width:100%;margin-top:8px;padding:15px;background:var(--ink);color:#f5f0e8;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;cursor:pointer;transition:background 0.15s,transform 0.1s;display:flex;align-items:center;justify-content:center;gap:10px}
+  .btn-predict:hover{background:#2d2318}.btn-predict:active{transform:scale(0.99)}.btn-predict:disabled{background:#ccc;cursor:not-allowed}
+
+  .spinner{width:18px;height:18px;border:2px solid rgba(245,240,232,0.3);border-top-color:#f5f0e8;border-radius:50%;animation:spin 0.6s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .err-box{background:#fff0f0;border:1.5px solid #fca5a5;border-radius:8px;padding:14px 16px;font-size:13px;color:#b91c1c;font-family:'JetBrains Mono',monospace;margin-top:12px;display:none;word-break:break-all}
+
+  #result{display:none;animation:up 0.3s ease}
+  @keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+  .verdict{border-radius:10px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .verdict.safe{background:#e8f5ee;border:1.5px solid #86efac}
+  .verdict.risky{background:#fff4e6;border:1.5px solid #fdba74}
+  .verdict.danger{background:#fff0f0;border:1.5px solid #fca5a5}
+  .verdict-icon{font-size:36px;line-height:1;flex-shrink:0}
+  .verdict-text{flex:1;min-width:0}
+  .verdict-text h3{font-size:17px;font-weight:600;margin-bottom:2px}
+  .verdict-text p{font-size:13px;color:var(--muted)}
+  .verdict-pct{font-family:'Bebas Neue',sans-serif;font-size:48px;line-height:1;flex-shrink:0}
+  .verdict.safe .verdict-pct{color:var(--accent2)}.verdict.risky .verdict-pct{color:var(--warn)}.verdict.danger .verdict-pct{color:var(--accent)}
+
+  .bar-wrap{margin-bottom:20px}
+  .bar-label{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px}
+  .bar-track{height:10px;background:var(--bg);border-radius:10px;border:1px solid var(--border);overflow:hidden}
+  .bar-fill{height:100%;border-radius:10px;transition:width 0.9s cubic-bezier(.4,0,.2,1),background 0.5s}
+
+  .order-id-bar{background:var(--ink);color:#f5f0e8;border-radius:8px;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+  .order-id-bar .oid-label{color:#8a7f70}
+
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+  @media(max-width:520px){.detail-grid{grid-template-columns:1fr}}
+  .detail-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .di-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .di-val{font-size:15px;font-weight:600}
+
+  .reasons-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .reasons{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .reason{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;border-left:3px solid var(--border);background:var(--bg)}
+  .reason.warn{border-left-color:var(--accent);background:#fff7f4}
+  .reason.safe{border-left-color:var(--accent2);background:#f0faf4}
+
+  hr{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+  .fb-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .fb-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .btn-fb{padding:13px;border:1.5px solid;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-success{background:#f0faf4;color:var(--accent2);border-color:#86efac}
+  .btn-success:hover{background:#dcfce7}
+  .btn-fail{background:#fff0f0;color:#b91c1c;border-color:#fca5a5}
+  .btn-fail:hover{background:#fee2e2}
+  .btn-fb:disabled{opacity:0.45;cursor:not-allowed}
+
+  .fb-result{margin-top:14px;padding:12px 16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.5;display:none;word-break:break-word}
+  .fb-result.ok{background:#f0faf4;color:var(--accent2);border:1px solid #86efac}
+  .fb-result.err{background:#fff0f0;color:#b91c1c;border:1px solid #fca5a5}
+
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);color:#f5f0e8;padding:12px 24px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all 0.25s;z-index:999;white-space:nowrap}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="logo">Hams<span>Hub</span></div>
+      <div class="tagline">Delivery Intelligence System</div>
+    </div>
+    <div class="api-status">
+      <span class="dot" id="api-dot"></span>
+      <span id="api-label">Checking…</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="sec-title">Place Order & Predict</div>
+  <div class="sec-sub">Enter order details — the system predicts delivery risk using past area data.</div>
+
+  <div class="card">
+    <div class="grid">
+
+      <div class="field">
+        <label>Delivery Area *</label>
+        <input type="text" id="area" placeholder="e.g. KR PURAM" autocomplete="off"/>
+      </div>
+
+      <div class="field">
+        <label>Delivery Hour (0–23) *</label>
+        <input type="number" id="slotScore" placeholder="e.g. 18" min="0" max="23"/>
+      </div>
+
+      <div class="field">
+        <label>Day of Week</label>
+        <select id="dayOfWeek">
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+          <option value="7">Sunday</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Weather Condition</label>
+        <select id="weatherScore">
+          <option value="0.0">☀️  Clear — No risk</option>
+          <option value="0.5">🌧️  Moderate — Some risk</option>
+          <option value="1.0">⛈️  Severe — High risk</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Payment Method</label>
+        <div class="cod-row" onclick="document.getElementById('cod').click()">
+          <span id="cod-label">Prepaid (Online)</span>
+          <label class="toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" id="cod" onchange="updateCodLabel()"/>
+            <span class="tog-slider"></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="btn-predict" id="predict-btn" onclick="runPredict()">
+      <span class="spinner" id="spin"></span>
+      <span id="btn-txt">PREDICT DELIVERY RISK</span>
+    </button>
+    <div class="err-box" id="predict-err"></div>
+  </div>
+
+  <!-- RESULT SECTION -->
+  <div id="result">
+
+    <div class="sec-title">Prediction Result</div>
+    <div class="sec-sub">Based on historical delivery feedback from your database.</div>
+
+    <div class="card">
+
+      <div class="verdict" id="verdict-box">
+        <div class="verdict-icon" id="verdict-icon">📦</div>
+        <div class="verdict-text">
+          <h3 id="verdict-title">—</h3>
+          <p  id="verdict-sub">—</p>
+        </div>
+        <div class="verdict-pct" id="verdict-pct">—</div>
+      </div>
+
+      <div class="bar-wrap">
+        <div class="bar-label"><span>FAILURE RISK</span><span id="bar-pct">0%</span></div>
+        <div class="bar-track"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="order-id-bar">
+        <span class="oid-label">ORDER ID</span>
+        <span id="show-order-id">—</span>
+      </div>
+
+      <div class="detail-grid" id="detail-grid"></div>
+
+      <div id="reasons-wrap"></div>
+
+      <hr/>
+
+      <div class="fb-title">📬 Submit Delivery Outcome</div>
+      <div class="fb-btns">
+        <button class="btn-fb btn-success" id="btn-ok"   onclick="submitFeedback('SUCCESS')">✅ Delivered Successfully</button>
+        <button class="btn-fb btn-fail"    id="btn-fail2" onclick="submitFeedback('FAILED')">❌ Delivery Failed</button>
+      </div>
+      <div class="fb-result" id="fb-result"></div>
+
+    </div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+  // ─────────────────────────────────────────────
+  // All fetch calls use relative URLs because this
+  // file is served by Spring Boot itself at /
+  // POST /delivery/predict   → Spring Boot handles
+  // POST /delivery/feedback  → Spring Boot handles
+  // ─────────────────────────────────────────────
+
+  let currentOrderId = null;
+
+  // Ping on load
+  window.addEventListener('load', async () => {
+    try {
+      await fetch('/delivery/predict', { method: 'OPTIONS' });
+      dot(true);
+    } catch { dot(false); }
+  });
+
+  function dot(ok) {
+    document.getElementById('api-dot').className   = 'dot ' + (ok ? 'ok' : 'err');
+    document.getElementById('api-label').textContent = ok ? 'API Live' : 'API Offline';
+  }
+
+  function updateCodLabel() {
+    document.getElementById('cod-label').textContent =
+      document.getElementById('cod').checked ? 'Cash on Delivery (COD)' : 'Prepaid (Online)';
+  }
+
+  // ── PREDICT ──────────────────────────────────
+  async function runPredict() {
+    hideErr();
+
+    const area         = document.getElementById('area').value.trim().toUpperCase();
+    const slotRaw      = document.getElementById('slotScore').value;
+    const slotScore    = parseFloat(slotRaw);
+    const dayOfWeek    = parseInt(document.getElementById('dayOfWeek').value);
+    const weatherScore = parseFloat(document.getElementById('weatherScore').value);
+    const cod          = document.getElementById('cod').checked;
+
+    if (!area)               return showErr('Area is required.');
+    if (slotRaw === '')      return showErr('Delivery hour is required.');
+    if (isNaN(slotScore) || slotScore < 0 || slotScore > 23)
+                             return showErr('Hour must be a number between 0 and 23.');
+
+    busy(true);
+
+    try {
+      const res = await fetch('/delivery/predict', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ area, slotScore, dayOfWeek, weatherScore, cod })
+      });
+
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error('Server response was not JSON:\n' + text); }
+
+      if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (data.message || text));
+
+      dot(true);
+      renderResult(data, { area, slotScore, dayOfWeek, weatherScore, cod });
+
+    } catch (e) {
+      dot(false);
+      showErr(e.message);
+    } finally {
+      busy(false);
+    }
+  }
+
+  // ── RENDER ───────────────────────────────────
+  function renderResult(data, inp) {
+    currentOrderId = data.orderId ?? null;
+    const pct      = data.percent  ?? 0;
+    const decision = data.decision ?? '—';
+    const reasons  = data.reasons  ?? [];
+    const isDanger = pct > 75;
+    const isRisky  = pct > 50;
+
+    // show panel
+    const panel = document.getElementById('result');
+    panel.style.display = 'block';
+    setTimeout(() => panel.scrollIntoView({ behavior:'smooth', block:'start' }), 60);
+
+    // verdict
+    const vbox = document.getElementById('verdict-box');
+    vbox.className = 'verdict ' + (isDanger ? 'danger' : isRisky ? 'risky' : 'safe');
+    document.getElementById('verdict-icon').textContent  = isDanger ? '🚫' : isRisky ? '⚠️' : '✅';
+    document.getElementById('verdict-title').textContent = decision;
+    document.getElementById('verdict-sub').textContent   =
+      isDanger ? 'High risk — confirm before dispatching' :
+      isRisky  ? 'Moderate risk — proceed with caution'  :
+                 'Low risk — safe to deliver';
+    document.getElementById('verdict-pct').textContent = pct + '%';
+
+    // bar
+    const fill = document.getElementById('bar-fill');
+    fill.style.background = isDanger ? '#e85d00' : isRisky ? '#c8a000' : '#1a6b3c';
+    document.getElementById('bar-pct').textContent = pct + '%';
+    setTimeout(() => { fill.style.width = pct + '%'; }, 80);
+
+    // order id
+    document.getElementById('show-order-id').textContent =
+      currentOrderId ? '#' + currentOrderId : '(server did not return orderId)';
+
+    // details
+    const days    = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const weather = inp.weatherScore >= 1 ? '⛈️ Severe' : inp.weatherScore >= 0.5 ? '🌧️ Moderate' : '☀️ Clear';
+    document.getElementById('detail-grid').innerHTML = `
+      <div class="detail-item"><div class="di-label">Area</div><div class="di-val">${inp.area}</div></div>
+      <div class="detail-item"><div class="di-label">Hour</div><div class="di-val">${inp.slotScore}:00</div></div>
+      <div class="detail-item"><div class="di-label">Day</div><div class="di-val">${days[inp.dayOfWeek]}</div></div>
+      <div class="detail-item"><div class="di-label">Weather</div><div class="di-val">${weather}</div></div>
+      <div class="detail-item"><div class="di-label">Payment</div><div class="di-val">${inp.cod ? 'COD' : 'Prepaid'}</div></div>
+      <div class="detail-item"><div class="di-label">Risk Score</div><div class="di-val">${pct}%</div></div>
+    `;
+
+    // reasons
+    const rw = document.getElementById('reasons-wrap');
+    const cls = isRisky ? 'warn' : 'safe';
+    const ico = isRisky ? '⚠️' : '✅';
+    const list = reasons.length
+      ? reasons.map(r => `<div class="reason ${cls}"><span>${ico}</span><span>${r}</span></div>`).join('')
+      : `<div class="reason safe"><span>✅</span><span>No risk factors detected for this area.</span></div>`;
+    rw.innerHTML = `<div class="reasons-title">Why this prediction</div><div class="reasons">${list}</div>`;
+
+    // reset feedback
+    document.getElementById('fb-result').style.display = 'none';
+    document.getElementById('btn-ok').disabled    = false;
+    document.getElementById('btn-fail2').disabled = false;
+
+    toast('✓ Prediction complete');
+  }
+
+  // ── FEEDBACK ─────────────────────────────────
+  async function submitFeedback(status) {
+    if (!currentOrderId) {
+      showFb('Cannot submit — orderId not available. Make sure PredictionResult returns orderId.', 'err');
+      return;
+    }
+    document.getElementById('btn-ok').disabled    = true;
+    document.getElementById('btn-fail2').disabled = true;
+
+    try {
+      const res  = await fetch(`/delivery/feedback?orderId=${currentOrderId}&status=${status}`, { method:'POST' });
+      const text = await res.text();
+      showFb(text, res.ok ? 'ok' : 'err');
+      toast(res.ok ? '✓ Feedback saved' : '✗ Feedback error');
+    } catch (e) {
+      showFb('Network error: ' + e.message, 'err');
+      document.getElementById('btn-ok').disabled    = false;
+      document.getElementById('btn-fail2').disabled = false;
+    }
+  }
+
+  // ── UTILS ────────────────────────────────────
+  function busy(b) {
+    document.getElementById('predict-btn').disabled = b;
+    document.getElementById('spin').style.display   = b ? 'block' : 'none';
+    document.getElementById('btn-txt').textContent  = b ? 'PREDICTING…' : 'PREDICT DELIVERY RISK';
+  }
+  function showErr(msg) {
+    const el = document.getElementById('predict-err');
+    el.textContent   = '⚠ ' + msg;
+    el.style.display = 'block';
+  }
+  function hideErr() { document.getElementById('predict-err').style.display = 'none'; }
+  function showFb(msg, type) {
+    const el = document.getElementById('fb-result');
+    el.textContent = msg; el.className = 'fb-result ' + type; el.style.display = 'block';
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+</script>
+</body>
+</html>
